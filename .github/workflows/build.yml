@@ -1,1 +1,80 @@
+name: Build Android APK
 
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write   # only used to attach the APK to a GitHub Release on version tags
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 150
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            git zip unzip build-essential ccache cmake gettext \
+            autoconf automake libtool libtool-bin pkg-config \
+            libffi-dev libssl-dev zlib1g-dev libltdl-dev
+
+      - name: Install Buildozer
+        run: |
+          python -m pip install --upgrade pip
+          pip install buildozer "cython<3" virtualenv setuptools
+
+      - name: Make sure the entry point is main.py
+        run: |
+          if [ ! -f main.py ]; then
+            if [ -f triangulation.py ]; then
+              cp triangulation.py main.py
+            else
+              echo "::error::Neither main.py nor triangulation.py was found"
+              exit 1
+            fi
+          fi
+
+      - name: Cache Buildozer / Android SDK / NDK
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.buildozer
+            .buildozer
+          key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
+          restore-keys: |
+            buildozer-${{ runner.os }}-
+
+      - name: Build debug APK
+        run: buildozer -v android debug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: triangulation-apk
+          path: bin/*.apk
+          if-no-files-found: error
+
+      - name: Attach APK to GitHub Release (version tags only)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: bin/*.apk
