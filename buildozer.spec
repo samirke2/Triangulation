@@ -34,7 +34,8 @@ android.accept_sdk_license = True
 
 # INTERNET: map tiles and opening WhatsApp / Google Maps links
 # READ/WRITE_EXTERNAL_STORAGE: choosing the .txt file in "Import File"
-android.permissions = INTERNET, ACCESS_NETWORK_STATE, READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE
+
+android.permissions = INTERNET, ACCESS_NETWORK_STATE, READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE, MANAGE_EXTERNAL_STORAGE
 
 # The licence/trial state lives in the app data folder; do not restore it from a cloud backup
 android.allow_backup = False

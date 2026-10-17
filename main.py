@@ -1330,8 +1330,11 @@ class MyWidget(BoxLayout):
         show_message('All data cleared successfully.')
 
     def show_popup(self, *args):
+        if not ensure_storage_permission():
+            show_message('Enable "Allow access to all files", then come back and press Import File again.')
+            return
         layout = FloatLayout()
-        self.file_chooser = FileChooserListView(filters=['*.txt'])
+        self.file_chooser = FileChooserListView(path=get_storage_root(), filters=['*.txt'])
         layout.add_widget(self.file_chooser)
         select = styled_button('Import File', bg_color=GREEN_BTN, icon='folder',
                                size_hint=(0.5, 0.1), pos_hint={'x': 0.25, 'y': 0.02})
@@ -1366,6 +1369,45 @@ class MyWidget(BoxLayout):
             show_message(f'Imported {len(rows)} lines successfully!')
         except Exception as e:
             show_message(f'Error reading file:\n{e}')
+
+from kivy.utils import platform as kivy_platform
+
+def get_storage_root():
+    if kivy_platform == 'android':
+        try:
+            from jnius import autoclass
+            Env = autoclass('android.os.Environment')
+            return Env.getExternalStorageDirectory().getAbsolutePath()
+        except Exception:
+            return '/storage/emulated/0'
+    return os.path.expanduser('~')
+
+def ensure_storage_permission():
+    """True if permission is granted; otherwise requests it and returns False."""
+    if kivy_platform != 'android':
+        return True
+    try:
+        from jnius import autoclass
+        Build = autoclass('android.os.Build$VERSION')
+        if Build.SDK_INT >= 30:
+            Env = autoclass('android.os.Environment')
+            if Env.isExternalStorageManager():
+                return True
+            Intent = autoclass('android.content.Intent')
+            Settings = autoclass('android.provider.Settings')
+            Uri = autoclass('android.net.Uri')
+            activity = autoclass('org.kivy.android.PythonActivity').mActivity
+            intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
+            intent.setData(Uri.parse('package:' + activity.getPackageName()))
+            activity.startActivity(intent)
+            return False
+        from android.permissions import request_permissions, Permission
+        request_permissions([Permission.READ_EXTERNAL_STORAGE,
+                             Permission.WRITE_EXTERNAL_STORAGE])
+        return True
+    except Exception as e:
+        _checkpoint('Permission error: %s' % e)
+        return False
 
 def to_float(text):
     return float(text.strip().replace(',', '.'))
@@ -1768,6 +1810,10 @@ KV = '''
 Builder.load_string(KV)
 
 class TriangulationApp(App):
+    def on_start(self):
+        if kivy_platform == 'android':
+            Clock.schedule_once(lambda dt: ensure_storage_permission(), 1)
+
     def build(self):
         Window.bind(on_keyboard=self.on_back_key)
         container = BoxLayout()
