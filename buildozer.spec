@@ -11,6 +11,8 @@ version = 1.0
 # Optional: uncomment after adding icon.png / splash.png next to main.py
 # icon.filename = %(source.dir)s/icon.png
 # presplash.filename = %(source.dir)s/splash.png
+icon.filename = %(source.dir)s/icon.png
+presplash.filename = %(source.dir)s/presplash.png
 presplash.color = #020B1E
 
 # Requirements (p4a does not install dependencies automatically, so list them all)
